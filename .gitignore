@@ -1,0 +1,124 @@
+import numpy as np
+from scipy.io import wavfile
+import os
+
+class MorseSystem:
+    def __init__(self):
+        # 摩斯密碼表
+        self.MORSE_CODE_DICT = {
+            'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 
+            'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 
+            'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 
+            'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 
+            'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 
+            'Z': '--..', '1': '.----', '2': '..---', '3': '...--', 
+            '4': '....-', '5': '.....', '6': '-....', '7': '--...', 
+            '8': '---..', '9': '----.', '0': '-----', ' ': '/', 
+        }
+        self.REVERSE_DICT = {v: k for k, v in self.MORSE_CODE_DICT.items()}
+
+    def is_morse(self, text):
+        """
+        判斷邏輯：
+        檢查字串是否只由 點(.)、劃(-)、空白( )、斜線(/) 組成。
+        如果包含其他字元 (如 A-Z)，則視為明文。
+        """
+        # 移除前後空白
+        clean_text = text.strip()
+        # 定義摩斯密碼允許的字元集合
+        valid_chars = set('.- /')
+        # 檢查輸入的所有字元是否都在允許集合內
+        return set(clean_text).issubset(valid_chars)
+
+    def encrypt(self, text):
+        """ 明文 -> 摩斯 """
+        cipher = []
+        for char in text.upper():
+            if char in self.MORSE_CODE_DICT:
+                cipher.append(self.MORSE_CODE_DICT[char])
+            else:
+                # 遇到字典沒定義的符號 (如 !@#)，保留原樣或忽略
+                cipher.append('?') 
+        return ' '.join(cipher)
+
+    def decrypt(self, morse):
+        """ 摩斯 -> 明文 """
+        plain = []
+        # 以空白切割每個摩斯符號
+        tokens = morse.strip().split(' ')
+        for token in tokens:
+            if token in self.REVERSE_DICT:
+                plain.append(self.REVERSE_DICT[token])
+            elif token == '':
+                continue
+            else:
+                plain.append('?') # 無法辨識的符號
+        return ''.join(plain)
+
+    def auto_process(self, input_str):
+        """ 自動判斷並執行轉換 """
+        if not input_str:
+            return "輸入為空"
+
+        if self.is_morse(input_str):
+            print(f"偵測到摩斯密碼，正在解密...")
+            return self.decrypt(input_str)
+        else:
+            print(f"偵測到一般文字，正在加密...")
+            return self.encrypt(input_str)
+
+    # --- 1. 文字與摩斯碼邏輯轉換 ---
+    def text_to_morse(self, text):
+        return ' '.join(self.MORSE_CODE_DICT.get(c.upper(), '?') for c in text)
+
+    def morse_to_text(self, morse):
+        words = morse.strip().split(' ')
+        return ''.join(self.REVERSE_DICT.get(w, '?') for w in words if w)
+    def text_to_audio(self, text, filename="output.wav", unit_time=0.1):
+        fs = 44100  # 採樣率
+        freq = 600  # 嗶聲頻率
+        morse = self.text_to_morse(text)
+        audio_segments = []
+
+        for symbol in morse:
+            if symbol == '.':
+                t = np.linspace(0, unit_time, int(fs * unit_time), False)
+                audio_segments.append(0.5 * np.sin(2 * np.pi * freq * t))
+                audio_segments.append(np.zeros(int(fs * unit_time))) # 符號間隔
+            elif symbol == '-':
+                t = np.linspace(0, unit_time * 3, int(fs * unit_time * 3), False)
+                audio_segments.append(0.5 * np.sin(2 * np.pi * freq * t))
+                audio_segments.append(np.zeros(int(fs * unit_time))) # 符號間隔
+            elif symbol == ' ':
+                audio_segments.append(np.zeros(int(fs * unit_time * 4))) # 字母間隔
+            elif symbol == '/':
+                audio_segments.append(np.zeros(int(fs * unit_time * 6))) # 單字間隔
+
+        full_audio = np.concatenate(audio_segments)
+        wavfile.write(filename, fs, np.int16(full_audio * 32767))
+        print(f"成功生成音訊檔: {filename}")
+
+if __name__ == "__main__":
+    ms = MorseSystem()
+    
+    question=int(input("text enter 1 ,audio加密(Encryption) enter 2 :"))
+
+    if question==1:
+        question1=int(input("加密(Encryption) enter 1,解密(Decryption) enter 2 :"))
+        if question1==1:
+            sentence=input("Input sentence to convert into code(Use capital letters) :")
+            result=ms.auto_process(sentence)
+            print(f"結果: {result}\n")
+        elif question1==2:
+            code=input("enter . or - to form words and use / to seperate word from word :")
+            result1=ms.auto_process(code)
+            print(f"結果: {result1}\n")
+        else:
+            print("Wrong")
+    if question==2:
+            original_text=input("Input sentence to convert into audio code(Use capital letters):")
+            print(f"原始文字: {original_text}")
+            ms.text_to_audio(original_text, "morse.wav")
+        
+    else:
+        print("Wrong")
